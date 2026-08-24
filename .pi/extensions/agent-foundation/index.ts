@@ -137,7 +137,14 @@ export default function (pi: ExtensionAPI) {
       );
 
       try {
-        const result = await runner.run(agent, task);
+        const result = await runner.run(agent, task,
+				      		{
+   					        	model: ctx.model
+     							 ? `${ctx.model.provider}/${ctx.model.id}`
+     					 		: undefined,
+   					 		thinkingLevel: ctx.thinkingLevel,
+ 					 		}, 
+				       );
 
         ctx.ui.setStatus(
           "agent-foundation",
@@ -152,6 +159,9 @@ export default function (pi: ExtensionAPI) {
             `Status: ${result.status}`,
             `Duration: ${result.durationMs} ms`,
             `Tool calls: ${result.toolCalls}`,
+	    `Model: ${result.model}`,
+	    `Stop Reason: ${result.stopReason}`,
+	    `Usage: ${result.usage}`,
             "",
             result.output,
           ],

@@ -22,6 +22,12 @@ Rules:
       write: false,
       execute: false,
     },
+    tools: [
+ 	 "read",
+  	 "ls",
+         "find",
+         "grep",
+         ],
   },
 
   {
@@ -45,6 +51,12 @@ Rules:
       write: false,
       execute: false,
     },
+tools: [
+  "read",
+  "ls",
+  "find",
+  "grep",
+],
   },
 
   {
@@ -68,6 +80,15 @@ Rules:
       write: true,
       execute: true,
     },
+tools: [
+  "read",
+  "write",
+  "edit",
+  "bash",
+  "ls",
+  "find",
+  "grep",
+],    
   },
 
   {
@@ -91,6 +112,12 @@ Rules:
       write: false,
       execute: true,
     },
+tools: [
+  "read",
+  "ls",
+  "find",
+  "grep",
+],
   },
 
   {
@@ -120,5 +147,11 @@ Rules:
       write: false,
       execute: false,
     },
+    tools: [
+  "read",
+  "ls",
+  "find",
+  "grep",
+],
   },
 ];
