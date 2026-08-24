@@ -22,7 +22,11 @@ export type SubagentUsage = {
   outputTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
-  totalTokens: number;
+  // Latest context size reported by the model runtime.
+  // This is NOT accumulated across turns.
+  contextTokens: number;
+  // Reasoning/thinking tokens reported by the model runtime.
+  reasoningTokens: number;
   turns: number;
 };
 
