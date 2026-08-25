@@ -4,11 +4,12 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { AGENTS } from "./agents.js";
 import { AgentRegistry } from "./registry.js";
 import { SubagentRunner } from "./runner.js";
-
+import { SequentialExecutor } from "./sequential-executor.js";
 
 export default function (pi: ExtensionAPI) {
   const registry = new AgentRegistry();
   const runner = new SubagentRunner();
+  const sequentialExecutor = new SequentialExecutor(registry, runner);
 
   for (const agent of AGENTS) {
     registry.register(agent);
@@ -185,7 +186,165 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
+/* This is for integrating SequentialExecutor so that /run-sequence command can run Agen A -> B -> C */
+  pi.registerCommand("run-sequence", {
+    description:
+      "Run an explicit sequence of registered agents",
+    handler: async (args, ctx) => {
+      const input = args?.trim();
 
+      if (!input) {
+        ctx.ui.notify(
+          'Usage: /run-sequence [{"agentId":"explorer","task":"Inspect the repository."},...]',
+          "warning",
+        );
+        return;
+      }
+
+      let tasks: Array<{
+        agentId: string;
+        task: string;
+      }>;
+
+      try {
+        const parsed = JSON.parse(input);
+
+        if (!Array.isArray(parsed)) {
+          throw new Error(
+            "Sequence must be a JSON array.",
+          );
+        }
+
+        tasks = parsed.map(
+          (item, index) => {
+            if (
+              !item ||
+              typeof item !== "object"
+            ) {
+              throw new Error(
+                `Task ${index + 1} must be an object.`,
+              );
+            }
+
+            if (
+              typeof item.agentId !== "string" ||
+              !item.agentId.trim()
+            ) {
+              throw new Error(
+                `Task ${index + 1} requires agentId.`,
+              );
+            }
+
+            if (
+              typeof item.task !== "string" ||
+              !item.task.trim()
+            ) {
+              throw new Error(
+                `Task ${index + 1} requires task.`,
+              );
+            }
+
+            return {
+              agentId: item.agentId.trim(),
+              task: item.task.trim(),
+            };
+          },
+        );
+      } catch (error) {
+        ctx.ui.notify(
+          error instanceof Error
+            ? `Invalid sequence: ${error.message}`
+            : `Invalid sequence: ${String(error)}`,
+          "error",
+        );
+        return;
+      }
+
+      if (tasks.length === 0) {
+        ctx.ui.notify(
+          "At least one task is required.",
+          "warning",
+        );
+        return;
+      }
+
+      ctx.ui.setStatus(
+        "agent-foundation",
+        `Running sequence (${tasks.length} agents)...`,
+      );
+
+      try {
+        const result =
+          await sequentialExecutor.execute(
+            tasks,
+            {
+              model:
+                ctx.model
+                  ? `${ctx.model.provider}/${ctx.model.id}`
+                  : undefined,
+              thinkingLevel:
+                ctx.thinkingLevel,
+              failurePolicy: "stop",
+            },
+          );
+
+        ctx.ui.setStatus(
+          "agent-foundation",
+          "",
+        );
+
+        const lines = [
+          "Sequential Agent Execution",
+          "",
+          `Execution: ${result.executionId}`,
+          `Status: ${result.status}`,
+          `Duration: ${result.durationMs} ms`,
+          `Agents executed: ${result.results.length}`,
+          "",
+          ...result.results.flatMap(
+            (entry) => [
+              `--- Agent ${entry.index + 1}: ${entry.agentId} ---`,
+              `Run: ${entry.result.runId}`,
+              `Status: ${entry.result.status}`,
+              `Duration: ${entry.result.durationMs} ms`,
+              `Tool calls: ${entry.result.toolCalls}`,
+              `Model: ${entry.result.model ?? "unknown"}`,
+              `Context tokens: ${entry.result.usage.contextTokens}`,
+              "",
+              entry.result.output,
+              "",
+            ],
+          ),
+        ];
+
+        if (result.error) {
+          lines.push(
+            `Execution error: ${result.error}`,
+          );
+        }
+
+        ctx.ui.setWidget(
+          "agent-foundation-sequence-result",
+          lines,
+          {
+            placement: "aboveEditor",
+          },
+        );
+      } catch (error) {
+        ctx.ui.setStatus(
+          "agent-foundation",
+          "",
+        );
+
+        ctx.ui.notify(
+          error instanceof Error
+            ? error.message
+            : String(error),
+          "error",
+        );
+      }
+    },
+  });
 
 
 

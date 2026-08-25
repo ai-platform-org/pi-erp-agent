@@ -11,6 +11,11 @@ import type {
   SubagentUsage,
 } from "./types.js";
 
+import type {
+  AgentExecutor,
+  AgentRunOptions,
+} from "./agent-executor.js";
+
 import { SubagentEventLogger } from "./event-log.js";
 
 type PiInvocation = {
@@ -18,10 +23,6 @@ type PiInvocation = {
   args: string[];
 };
 
-type RunnerOptions = {
-  model?: string;
-  thinkingLevel?: string;
-};
 
 type ChildResult = {
   output: string;
@@ -159,7 +160,7 @@ function createEmptyUsage(): SubagentUsage {
  * runner. Higher-level orchestration should interact only through
  * SubagentResult.
  */
-export class SubagentRunner {
+export class SubagentRunner implements AgentExecutor {
   private readonly eventLogger: SubagentEventLogger;
 
   constructor(
@@ -171,7 +172,7 @@ export class SubagentRunner {
   async run(
     agent: AgentDefinition,
     task: string,
-    options: RunnerOptions = {},
+    options: AgentRunOptions = {},
     signal?: AbortSignal,
   ): Promise<SubagentResult> {
     const runId = randomUUID();

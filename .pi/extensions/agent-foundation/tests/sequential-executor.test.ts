@@ -8,6 +8,10 @@ import type {
 
 import { AgentRegistry } from "../registry.js";
 
+import type {
+  AgentExecutor,
+} from "../agent-executor.js";
+
 import {
   SequentialExecutor,
   type SequentialTask,
@@ -57,7 +61,7 @@ function createResult(
   };
 }
 
-class FakeRunner {
+class FakeRunner implements AgentExecutor {
   readonly calls: Array<{
     agentId: string;
     task: string;
@@ -108,7 +112,7 @@ function createExecutor(
    */
   return new SequentialExecutor(
     registry,
-    runner as never,
+    runner,
   );
 }
 
@@ -459,6 +463,59 @@ test(
     assert.equal(
       runner.calls.length,
       0,
+    );
+  },
+);
+
+test(
+  "accepts an AgentExecutor implementation",
+  async () => {
+    const agent = createAgent("test-agent");
+
+    const runner: AgentExecutor = {
+      async run(
+        executedAgent,
+        task,
+      ) {
+        assert.equal(
+          executedAgent.id,
+          "test-agent",
+        );
+
+        assert.equal(
+          task,
+          "Run test.",
+        );
+
+        return createResult(
+          executedAgent.id,
+          "Test completed.",
+        );
+      },
+    };
+
+    const executor =
+      createExecutor(
+        [agent],
+        runner,
+      );
+
+    const result =
+      await executor.execute([
+        {
+          agentId: "test-agent",
+          task: "Run test.",
+        },
+      ]);
+
+    assert.equal(
+      result.status,
+      "succeeded",
+    );
+
+    assert.equal(
+      result.results[0]?.result.output,
+      "Test completed.",
     );
   },
 );

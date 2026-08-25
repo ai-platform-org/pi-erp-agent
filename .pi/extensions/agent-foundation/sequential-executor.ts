@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { AgentDefinition, SubagentResult } from "./types.js";
 import { AgentRegistry } from "./registry.js";
-import { SubagentRunner } from "./runner.js";
+import type {  AgentExecutor,} from "./agent-executor.js";
 
 export type SequentialFailurePolicy =
   | "stop"
@@ -51,7 +51,7 @@ export type SequentialExecutionResult = {
 export class SequentialExecutor {
   constructor(
     private readonly registry: AgentRegistry,
-    private readonly runner: SubagentRunner,
+    private readonly runner: AgentExecutor,
   ) {}
 
   async execute(
