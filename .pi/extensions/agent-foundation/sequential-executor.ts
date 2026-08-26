@@ -3,22 +3,20 @@ import { randomUUID } from "node:crypto";
 import type { AgentDefinition, ExecutionNode, ExecutionRecord,SubagentResult } from "./types.js";
 import { AgentRegistry } from "./registry.js";
 import type {  AgentExecutor,} from "./agent-executor.js";
+import type {
+  Orchestrator,
+  OrchestrationOptions,
+  OrchestrationResult,
+  OrchestrationTask,
+} from "./orchestration.js";
 
 export type SequentialFailurePolicy =
   | "stop"
   | "continue";
 
-export type SequentialTask = {
-  agentId: string;
-  task: string;
-};
+export type SequentialTask = OrchestrationTask;
 
-export type SequentialExecutorOptions = {
-  failurePolicy?: SequentialFailurePolicy;
-  model?: string;
-  thinkingLevel?: string;
-  signal?: AbortSignal;
-};
+export type SequentialExecutorOptions = OrchestrationOptions;
 
 export type SequentialTaskResult = {
   index: number;
@@ -59,7 +57,7 @@ export type SequentialExecutionResult = {
  * This class intentionally contains no planning or agent-selection logic.
  * The caller defines the sequence; this executor only executes it.
  */
-export class SequentialExecutor {
+export class SequentialExecutor implements Orchestrator {
   constructor(
     private readonly registry: AgentRegistry,
     private readonly runner: AgentExecutor,

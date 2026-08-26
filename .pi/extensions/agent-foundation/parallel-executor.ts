@@ -9,6 +9,14 @@ import {
 } from "./registry.js";
 
 import type {
+  Orchestrator,
+  OrchestrationOptions,
+  OrchestrationResult,
+  OrchestrationTask,
+} from "./orchestration.js";
+
+
+import type {
   ExecutionNode,
   ExecutionRecord,
   SubagentResult,
@@ -18,10 +26,7 @@ export type ParallelFailurePolicy =
   | "collect"
   | "stop";
 
-export type ParallelTask = {
-  agentId: string;
-  task: string;
-};
+export type ParallelTask = OrchestrationTask;
 
 export type ParallelExecutorOptions = {
   /**
@@ -86,7 +91,7 @@ export type ParallelExecutionResult = {
  *
  * This class controls concurrency and result aggregation only.
  */
-export class ParallelExecutor {
+export class ParallelExecutor implements Orchestrator{
   constructor(
     private readonly registry: AgentRegistry,
     private readonly runner: AgentExecutor,

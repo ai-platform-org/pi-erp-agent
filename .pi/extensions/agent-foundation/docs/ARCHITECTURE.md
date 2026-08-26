@@ -31,4 +31,29 @@ SequentialExecutor  ParallelExecutor
              ▼
        AgentRegistry
 
+
+
+
+SubagentRunner
+      │
+      ▼
+AgentExecutor             ← single-agent execution
+      │
+      ▼
+┌─────────────────────────────────┐
+│      Orchestration Contract     │
+└─────────────────────────────────┘
+        │                 │
+        ▼                 ▼
+ Sequential           Parallel
+ Executor             Executor
+
+
+ AgentExecutor
+    = HOW do I execute one agent?
+
+Orchestration
+    = WHICH tasks execute, in what relationship,
+      with what concurrency/failure/cancellation policy?
+
        ```
