@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { AgentDefinition, SubagentResult } from "./types.js";
+import type { AgentDefinition, ExecutionNode, ExecutionRecord,SubagentResult } from "./types.js";
 import { AgentRegistry } from "./registry.js";
 import type {  AgentExecutor,} from "./agent-executor.js";
 
@@ -40,7 +40,18 @@ export type SequentialExecutionResult = {
   durationMs: number;
 
   error?: string;
+
+   /**
+   * Coordinator-independent execution representation.
+   *
+   * Consumers that need execution visualization, telemetry,
+   * persistence, or reporting should prefer this record rather
+   * than depending on sequential-specific result structures.
+   */
+  executionRecord: ExecutionRecord;
 };
+
+
 
 /**
  * Executes an explicitly defined sequence of registered agents.
@@ -53,6 +64,70 @@ export class SequentialExecutor {
     private readonly registry: AgentRegistry,
     private readonly runner: AgentExecutor,
   ) {}
+
+private createExecutionNode(
+  index: number,
+  task: SequentialTaskResult,
+): ExecutionNode {
+  return {
+    id: `task-${index}`,
+    agentId: task.agentId,
+    dependsOn:
+      index > 0
+        ? [`task-${index - 1}`]
+        : [],
+    runId: task.result.runId,
+    status: task.result.status,
+    durationMs:
+      task.result.durationMs,
+    toolCalls:
+      task.result.toolCalls,
+    model:
+      task.result.model,
+    usage:
+      task.result.usage,
+    output:
+      task.result.output,
+    ...(task.result.error
+      ? {
+          error: task.result.error,
+        }
+      : {}),
+  };
+}
+
+private buildExecutionRecord(
+  executionId: string,
+  startTime: number,
+  status: ExecutionRecord["status"],
+  results: readonly SequentialTaskResult[],
+  error?: string,
+): ExecutionRecord {
+  const completedAt = Date.now();
+
+  return {
+    executionId,
+    coordinator: "sequential",
+    status,
+    startedAt: startTime,
+    completedAt,
+    durationMs:
+      completedAt - startTime,
+    nodes: results.map(
+      (result, index) =>
+        this.createExecutionNode(
+          index,
+          result,
+        ),
+    ),
+    ...(error
+      ? {
+          error,
+        }
+      : {}),
+  };
+}
+  
 
   async execute(
     tasks: readonly SequentialTask[],
@@ -72,6 +147,13 @@ export class SequentialExecutor {
         status: "succeeded",
         results: [],
         durationMs: Date.now() - startTime,
+        executionRecord:
+      this.buildExecutionRecord(
+        executionId,
+        startTime,
+        "succeeded",
+        [],
+      ),
       };
     }
 
@@ -90,13 +172,24 @@ export class SequentialExecutor {
         }
 
         if (options.signal?.aborted) {
+
+          const error =  "Sequential execution was cancelled.";
+
+          const durationMs =  Date.now() - startTime;
+
           return {
             executionId,
             status: "cancelled",
             results,
-            durationMs: Date.now() - startTime,
-            error:
-              "Sequential execution was cancelled.",
+            durationMs,
+            error,
+            executionRecord:this.buildExecutionRecord(
+                              executionId,
+                              startTime,
+                              "cancelled",
+                              results,
+                              error,
+                            ),
           };
         }
 
@@ -108,12 +201,22 @@ export class SequentialExecutor {
             `Unknown agent: ${taskDefinition.agentId}`;
 
           if (failurePolicy === "stop") {
+
+          const durationMs =  Date.now() - startTime;
+
             return {
               executionId,
               status: "failed",
               results,
               durationMs: Date.now() - startTime,
               error,
+              executionRecord:this.buildExecutionRecord(
+                              executionId,
+                              startTime,
+                              "failed",
+                              results,
+                              error,
+                            ),
             };
           }
 
@@ -175,29 +278,52 @@ export class SequentialExecutor {
         if (
           result.status === "cancelled"
         ) {
+          const error =
+  "Sequential execution was cancelled.";
+
+const durationMs =
+  Date.now() - startTime;
+
           return {
             executionId,
             status: "cancelled",
             results,
-            durationMs:
-              Date.now() - startTime,
-            error:
-              result.error ??
-              "Sequential execution was cancelled.",
+            durationMs,
+            error,
+               executionRecord:
+                              this.buildExecutionRecord(
+                                executionId,
+                                startTime,
+                                "cancelled",
+                                results,
+                                error,
+                              ),
           };
         }
 
         if (result.status === "failed") {
           if (failurePolicy === "stop") {
+            const error =
+  result.error ??
+  `Agent failed: ${agent.id}`;
+
+const durationMs =
+  Date.now() - startTime;
+
             return {
               executionId,
               status: "failed",
               results,
-              durationMs:
-                Date.now() - startTime,
-              error:
-                result.error ??
-                `Agent failed: ${agent.id}`,
+              durationMs,
+              error,
+                executionRecord:
+    this.buildExecutionRecord(
+      executionId,
+      startTime,
+      "failed",
+      results,
+      error,
+    ),
             };
           }
 
@@ -217,21 +343,37 @@ export class SequentialExecutor {
           entry.result.status === "failed",
       );
 
-      return {
-        executionId,
-        status: hasFailure
-          ? "failed"
-          : "succeeded",
-        results,
-        durationMs:
-          Date.now() - startTime,
-        ...(hasFailure
-          ? {
-              error:
-                "One or more sequential tasks failed.",
-            }
-          : {}),
-      };
+      const status = hasFailure
+  ? "failed"
+  : "succeeded";
+
+const error = hasFailure
+  ? "One or more sequential tasks failed."
+  : undefined;
+
+const durationMs =
+  Date.now() - startTime;
+
+
+    return {
+  executionId,
+  status,
+  results,
+  durationMs,
+  ...(error
+    ? {
+        error,
+      }
+    : {}),
+  executionRecord:
+    this.buildExecutionRecord(
+      executionId,
+      startTime,
+      status,
+      results,
+      error,
+    ),
+};
     } catch (error) {
       return {
         executionId,
@@ -241,7 +383,17 @@ export class SequentialExecutor {
         error:
           error instanceof Error
             ? error.message
+            : String(error),        
+  executionRecord:
+    this.buildExecutionRecord(
+      executionId,
+      startTime,
+      "failed",
+      results,
+      error instanceof Error
+            ? error.message
             : String(error),
+    ),
       };
     }
   }

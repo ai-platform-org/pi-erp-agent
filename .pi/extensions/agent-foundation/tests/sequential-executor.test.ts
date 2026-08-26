@@ -96,7 +96,7 @@ class FakeRunner implements AgentExecutor {
 
 function createExecutor(
   agents: AgentDefinition[],
-  runner: FakeRunner,
+  runner: AgentExecutor,
 ): SequentialExecutor {
   const registry = new AgentRegistry();
 
@@ -105,10 +105,8 @@ function createExecutor(
   }
 
   /*
-   * The production executor expects SubagentRunner.
+   * The production executor expects AgentExecutor.
    *
-   * The test intentionally uses a structural fake because the
-   * executor depends only on runner.run().
    */
   return new SequentialExecutor(
     registry,
@@ -516,6 +514,90 @@ test(
     assert.equal(
       result.results[0]?.result.output,
       "Test completed.",
+    );
+  },
+);
+
+test(
+  "produces a coordinator-independent execution record",
+  async () => {
+    const explorer = createAgent(
+      "explorer",
+    );
+
+    const architect = createAgent(
+      "architect",
+    );
+
+    const runner = new FakeRunner({
+      explorer: createResult(
+        "explorer",
+        "Explorer findings",
+      ),
+      architect: createResult(
+        "architect",
+        "Architecture recommendation",
+      ),
+    });
+
+    const executor =
+      createExecutor(
+        [explorer, architect],
+        runner,
+      );
+
+    const result =
+      await executor.execute([
+        {
+          agentId: "explorer",
+          task: "Explore.",
+        },
+        {
+          agentId: "architect",
+          task: "Design.",
+        },
+      ]);
+
+    assert.equal(
+      result.executionRecord.executionId,
+      result.executionId,
+    );
+
+    assert.equal(
+      result.executionRecord.coordinator,
+      "sequential",
+    );
+
+    assert.equal(
+      result.executionRecord.status,
+      "succeeded",
+    );
+
+    assert.equal(
+      result.executionRecord.nodes.length,
+      2,
+    );
+
+    assert.deepEqual(
+      result.executionRecord.nodes.map(
+        (node) => node.agentId,
+      ),
+      [
+        "explorer",
+        "architect",
+      ],
+    );
+
+    assert.deepEqual(
+      result.executionRecord.nodes[0]
+        ?.dependsOn,
+      [],
+    );
+
+    assert.deepEqual(
+      result.executionRecord.nodes[1]
+        ?.dependsOn,
+      ["task-0"],
     );
   },
 );

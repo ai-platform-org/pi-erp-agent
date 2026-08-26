@@ -1,15 +1,21 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-
 import { AGENTS } from "./agents.js";
 import { AgentRegistry } from "./registry.js";
 import { SubagentRunner } from "./runner.js";
 import { SequentialExecutor } from "./sequential-executor.js";
+import { renderExecutionSummary } from "./execution-ui.js";
+import type { ExecutionRecord } from "./types.js";
 
 export default function (pi: ExtensionAPI) {
   const registry = new AgentRegistry();
   const runner = new SubagentRunner();
-  const sequentialExecutor = new SequentialExecutor(registry, runner);
+  const sequentialExecutor = new SequentialExecutor(
+    registry,
+    runner,
+  );
+
+  let lastExecution: ExecutionRecord | undefined;
 
   for (const agent of AGENTS) {
     registry.register(agent);
@@ -138,14 +144,12 @@ export default function (pi: ExtensionAPI) {
       );
 
       try {
-        const result = await runner.run(agent, task,
-				      		{
-   					        	model: ctx.model
-     							 ? `${ctx.model.provider}/${ctx.model.id}`
-     					 		: undefined,
-   					 		thinkingLevel: ctx.thinkingLevel,
- 					 		}, 
-				       );
+        const result = await runner.run(agent, task, {
+          model: ctx.model
+            ? `${ctx.model.provider}/${ctx.model.id}`
+            : undefined,
+          thinkingLevel: ctx.thinkingLevel,
+        });
 
         ctx.ui.setStatus(
           "agent-foundation",
@@ -160,9 +164,9 @@ export default function (pi: ExtensionAPI) {
             `Status: ${result.status}`,
             `Duration: ${result.durationMs} ms`,
             `Tool calls: ${result.toolCalls}`,
-	    `Model: ${result.model}`,
-	    `Stop Reason: ${result.stopReason}`,
-	    `Usage: ${result.usage}`,
+            `Model: ${result.model}`,
+            `Stop Reason: ${result.stopReason}`,
+            `Usage: ${result.usage}`,
             "",
             result.output,
           ],
@@ -186,7 +190,11 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-/* This is for integrating SequentialExecutor so that /run-sequence command can run Agen A -> B -> C */
+  /*
+   * Integrates SequentialExecutor so /run-sequence can execute
+   * Agent A -> B -> C while exposing the coordinator-independent
+   * ExecutionRecord to the TUI layer.
+   */
   pi.registerCommand("run-sequence", {
     description:
       "Run an explicit sequence of registered agents",
@@ -207,7 +215,7 @@ export default function (pi: ExtensionAPI) {
       }>;
 
       try {
-        const parsed = JSON.parse(input);
+        const parsed: unknown = JSON.parse(input);
 
         if (!Array.isArray(parsed)) {
           throw new Error(
@@ -216,7 +224,7 @@ export default function (pi: ExtensionAPI) {
         }
 
         tasks = parsed.map(
-          (item, index) => {
+          (item: unknown, index: number) => {
             if (
               !item ||
               typeof item !== "object"
@@ -226,9 +234,14 @@ export default function (pi: ExtensionAPI) {
               );
             }
 
+            const taskItem = item as {
+              agentId?: unknown;
+              task?: unknown;
+            };
+
             if (
-              typeof item.agentId !== "string" ||
-              !item.agentId.trim()
+              typeof taskItem.agentId !== "string" ||
+              !taskItem.agentId.trim()
             ) {
               throw new Error(
                 `Task ${index + 1} requires agentId.`,
@@ -236,8 +249,8 @@ export default function (pi: ExtensionAPI) {
             }
 
             if (
-              typeof item.task !== "string" ||
-              !item.task.trim()
+              typeof taskItem.task !== "string" ||
+              !taskItem.task.trim()
             ) {
               throw new Error(
                 `Task ${index + 1} requires task.`,
@@ -245,8 +258,8 @@ export default function (pi: ExtensionAPI) {
             }
 
             return {
-              agentId: item.agentId.trim(),
-              task: item.task.trim(),
+              agentId: taskItem.agentId.trim(),
+              task: taskItem.task.trim(),
             };
           },
         );
@@ -293,39 +306,19 @@ export default function (pi: ExtensionAPI) {
           "",
         );
 
-        const lines = [
-          "Sequential Agent Execution",
-          "",
-          `Execution: ${result.executionId}`,
-          `Status: ${result.status}`,
-          `Duration: ${result.durationMs} ms`,
-          `Agents executed: ${result.results.length}`,
-          "",
-          ...result.results.flatMap(
-            (entry) => [
-              `--- Agent ${entry.index + 1}: ${entry.agentId} ---`,
-              `Run: ${entry.result.runId}`,
-              `Status: ${entry.result.status}`,
-              `Duration: ${entry.result.durationMs} ms`,
-              `Tool calls: ${entry.result.toolCalls}`,
-              `Model: ${entry.result.model ?? "unknown"}`,
-              `Context tokens: ${entry.result.usage.contextTokens}`,
-              "",
-              entry.result.output,
-              "",
-            ],
-          ),
-        ];
-
-        if (result.error) {
-          lines.push(
-            `Execution error: ${result.error}`,
-          );
-        }
+        /*
+         * Keep the complete execution record outside the widget.
+         * The compact summary is intentionally coordinator-agnostic
+         * and therefore reusable by future parallel/DAG coordinators.
+         */
+        lastExecution =
+          result.executionRecord;
 
         ctx.ui.setWidget(
           "agent-foundation-sequence-result",
-          lines,
+          renderExecutionSummary(
+            lastExecution,
+          ),
           {
             placement: "aboveEditor",
           },
@@ -345,8 +338,4 @@ export default function (pi: ExtensionAPI) {
       }
     },
   });
-
-
-
-
 }

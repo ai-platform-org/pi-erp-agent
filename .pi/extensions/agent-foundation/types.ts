@@ -47,3 +47,63 @@ export type SubagentResult = {
   stopReason?: string;
   error?: string;
 };
+
+export type ExecutionCoordinator =
+  | "sequential"
+  | "parallel"
+  | "dag"
+  | "custom";
+
+export type ExecutionStatus =
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
+
+export type ExecutionNode = {
+  id: string;
+  agentId: string;
+
+  /**
+   * Dependency node IDs.
+   *
+   * Sequential coordinators populate this as a chain.
+   * Parallel coordinators can leave multiple nodes independent.
+   * DAG coordinators can construct arbitrary dependency graphs.
+   */
+  dependsOn: string[];
+
+  runId?: string;
+
+  status: ExecutionStatus;
+
+  startedAt?: number;
+  completedAt?: number;
+  durationMs?: number;
+
+  toolCalls?: number;
+
+  model?: string;
+
+  usage?: SubagentUsage;
+
+  output?: string;
+  error?: string;
+};
+
+export type ExecutionRecord = {
+  executionId: string;
+
+  coordinator: ExecutionCoordinator;
+
+  status: ExecutionStatus;
+
+  startedAt: number;
+  completedAt?: number;
+  durationMs?: number;
+
+  nodes: ExecutionNode[];
+
+  error?: string;
+};
