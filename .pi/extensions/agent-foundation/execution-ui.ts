@@ -61,7 +61,7 @@ export function renderExecutionSummary(
   }
 
   lines.push(
-    "Details: /sequence-details",
+    "Details: /execution-details",
   );
 
   return lines;
