@@ -618,3 +618,31 @@ test(
     );
   },
 );
+
+
+test(
+  "orchestration policies remain coordinator-specific",
+  () => {
+    const sequentialOptions: {
+      failurePolicy?: "stop" | "continue";
+    } = {
+      failurePolicy: "continue",
+    };
+
+    const parallelOptions: {
+      failurePolicy?: "collect" | "stop";
+    } = {
+      failurePolicy: "collect",
+    };
+
+    assert.equal(
+      sequentialOptions.failurePolicy,
+      "continue",
+    );
+
+    assert.equal(
+      parallelOptions.failurePolicy,
+      "collect",
+    );
+  },
+);

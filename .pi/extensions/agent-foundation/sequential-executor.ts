@@ -16,7 +16,15 @@ export type SequentialFailurePolicy =
 
 export type SequentialTask = OrchestrationTask;
 
-export type SequentialExecutorOptions = OrchestrationOptions;
+/** from being accepted by TypeScript even though "collect" has no sequential meaning. */
+export type SequentialExecutorOptions =
+  Omit<
+    OrchestrationOptions,
+    "failurePolicy"
+  > & {
+    failurePolicy?:
+      SequentialFailurePolicy;
+  };
 
 export type SequentialTaskResult = {
   index: number;

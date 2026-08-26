@@ -10,9 +10,8 @@ import {
 
 import type {
   Orchestrator,
-  OrchestrationOptions,
-  OrchestrationResult,
   OrchestrationTask,
+  OrchestrationOptions,
 } from "./orchestration.js";
 
 
@@ -28,7 +27,10 @@ export type ParallelFailurePolicy =
 
 export type ParallelTask = OrchestrationTask;
 
-export type ParallelExecutorOptions = {
+export type ParallelExecutorOptions = Omit<
+    OrchestrationOptions,
+    "failurePolicy"
+  > & {
   /**
    * Maximum number of agents allowed to execute concurrently.
    *
