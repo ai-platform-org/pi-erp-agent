@@ -1,15 +1,29 @@
 ```
 .pi/extensions/agent-foundation/
-├── agent-executor.ts              ← NEW
-├── agents.ts
-├── event-log.ts
-├── index.ts                       ← unchanged
-├── registry.ts
-├── runner.ts                      ← implements AgentExecutor
-├── sequential-executor.ts         ← depends on interface
-├── types.ts
-└── tests/
-    └── sequential-executor.test.ts
+
+
+                  Pi Coding Agent
+                         │
+                         ▼
+              Agent Foundation
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+          ▼                             ▼
+    AgentExecutor                 Orchestrator
+          │                             │
+          ▼                    ┌────────┴────────┐
+   SubagentRunner              ▼                 ▼
+          │               Sequential         Parallel
+          ▼
+    Pi subprocess                └────────┬────────┘
+                                          ▼
+                                  ExecutionRecord
+                                          │
+                         ┌────────────────┴──────────────┐
+                         │                               │
+                    UI / telemetry                Phase 3
+                                                   DAG + state
  
 
 
