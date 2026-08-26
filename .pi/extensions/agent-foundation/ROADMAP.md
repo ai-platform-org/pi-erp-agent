@@ -640,3 +640,120 @@ Advance only when the current phase has:
 6. A clear rollback/checkpoint.
 
 This keeps the project incremental and prevents the orchestration layer from becoming an untestable autonomous system.
+
+
+## Development Governance
+
+This roadmap defines the implementation order for the Agent Foundation.
+
+The project is developed incrementally. Each phase must reach a stable checkpoint before the next phase begins.
+
+### Phase execution rules
+
+For each phase:
+
+1. Define the architectural objective.
+2. Identify the required interfaces and data model.
+3. Implement the smallest complete change satisfying the objective.
+4. Add or update tests.
+5. Run regression tests.
+6. Run TypeScript type checking.
+7. Update documentation and ADRs when required.
+8. Review the resulting architecture.
+9. Mark the phase complete.
+10. Stop before beginning the next phase.
+
+The coding agent must not implement future phases without explicit authorization.
+
+### Architectural review gates
+
+Human architectural review is required before changing:
+
+- `AgentExecutor`;
+- `Orchestrator`;
+- `ExecutionRecord`;
+- execution semantics;
+- persistence architecture;
+- security boundaries;
+- external dependencies;
+- licensing strategy.
+
+### Phase 2 checkpoint
+
+Phase 2 established:
+
+- sequential execution;
+- parallel execution;
+- common orchestration contract;
+- coordinator-independent `ExecutionRecord`;
+- ecosystem/reuse/licensing decision.
+
+The Phase 2 architecture is considered the foundation for Phase 3.
+
+### Phase 3 architectural direction
+
+Phase 3 extends the Phase 2 orchestration model toward workflow/DAG execution.
+
+The intended separation is:
+
+```text
+Workflow / DAG
+      |
+      | determines dependency readiness
+      v
+DAG Coordinator
+      |
+      | delegates executable work
+      v
+Orchestrator
+      |
+      +--> SequentialExecutor
+      |
+      +--> ParallelExecutor
+      |
+      v
+ExecutionRecord
+```
+
+The DAG layer determines **what can execute**.
+
+The executor determines **how executable work is executed**.
+
+Do not collapse these responsibilities into a single executor.
+
+### Phase 3 implementation constraint
+
+Before implementing the DAG executor, define and test:
+
+- workflow representation;
+- task representation;
+- dependency representation;
+- task states;
+- dependency validation;
+- cycle detection;
+- ready-task calculation;
+- failure semantics;
+- cancellation semantics.
+
+Do not implement persistence or recovery merely as part of DAG scheduling unless explicitly included in the current phase.
+
+
+
+### Long-horizon repository rule
+
+Every phase is implemented against the repository state produced by
+all preceding phases.
+
+A phase must not:
+
+- replace functioning earlier infrastructure merely to simplify
+  the current implementation;
+- delete previous tests without an approved architectural reason;
+- bypass an earlier abstraction without documenting why;
+- introduce temporary scaffolding that is knowingly incompatible
+  with later roadmap phases;
+- assume that a future phase will repair current architectural
+  shortcuts.
+
+Each phase should leave the repository in a buildable, testable,
+documented state suitable for the next autonomous development run.
